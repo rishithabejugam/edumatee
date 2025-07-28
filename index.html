@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduMate - AI Document Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+        }
+        
+        .pdf-viewer {
+            background-color: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            height: 100%;
+            overflow-y: auto;
+        }
+        
+        .chat-container {
+            height: calc(100vh - 64px);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+        
+        .message {
+            margin-bottom: 1rem;
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+        }
+        
+        .user-message {
+            background-color: #e9f5fe;
+            color: #0369a1;
+            margin-left: auto;
+            border-bottom-right-radius: 0.25rem;
+        }
+        
+        .bot-message {
+            background-color: #f3f4f6;
+            color: #374151;
+            margin-right: auto;
+            border-bottom-left-radius: 0.25rem;
+        }
+        
+        .chat-input {
+            padding: 1rem;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .feature-card {
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .pdf-page {
+            background-color: white;
+            margin: 1rem auto;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .highlight {
+            background-color: rgba(250, 204, 21, 0.3);
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+        
+        .sidebar-btn {
+            transition: all 0.2s ease;
+        }
+        
+        .sidebar-btn:hover {
+            background-color: #e5e7eb;
+        }
+        
+        .sidebar-btn.active {
+            background-color: #e0f2fe;
+            color: #0284c7;
+        }
+        
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        .loading-dots:after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
+        }
+    </style>
+</head>
+<body> <div class="flex h-screen bg-gray-50">
+        <!-- Sidebar -->
+        <div class="w-64 bg-white border-r border-gray-200 flex flex-col">
+            <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center">
+                    <div class="bg-gradient-to-r from-blue-500 to-cyan-400 text-white p-2 rounded-lg mr-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                    </div>
+                    <h1 class="text-xl font-bold text-gray-800">EduMate</h1>
+                </div>
+            </div>
+            
+            <div class="p-4">
+                <button id="uploadBtn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    Upload PDF
+                </button>
+            </div>
+            
+            <div class="overflow-y-auto flex-grow">
+                <div class="p-4">
+                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Recent Documents</h2>
+                    <div class="space-y-2">
+                        <div class="sidebar-btn active flex items-center p-2 rounded-lg cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span class="text-sm">Machine Learning Basics.pdf</span>
+                        </div>
+                        <div class="sidebar-btn flex items-center p-2 rounded-lg cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span class="text-sm">Research Paper.pdf</span>
+                        </div>
+                        <div class="sidebar-btn flex items-center p-2 rounded-lg cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span class="text-sm">Study Notes.pdf</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-4 border-t border-gray-200">
+                    <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Tools</h2>
+                    <div class="space-y-2">
+                        <div class="sidebar-btn flex items-center p-2 rounded-lg cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                            </svg>
+                            <span class="text-sm">Summarize</span>
+                        </div>
+                        <div class="sidebar-btn flex items-center p-2 rounded-lg cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-sm">Ask Questions</span>
+                        </div>
+                        <div class="sidebar-btn flex items-center p-2 rounded-lg cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                            </svg>
+                            <span class="text-sm">Translate</span>
+                        </div>
+                        <div class="sidebar-btn flex items-center p-2 rounded-lg cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                            <span class="text-sm">Voice Mode</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-4 border-t border-gray-200">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold">U</div>
+                    <div class="ml-2">
+                        <div class="text-sm font-medium text-gray-700">User</div>
+                        <div class="text-xs text-gray-500">Free Plan</div>
+                    </div>
+                    <div class="ml-auto">
+                        <button class="text-gray-400 hover:text-gray-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col">
+            <!-- Header -->
+            <header class="bg-white border-b border-gray-200 h-16 flex items-center px-6">
+                <div class="flex items-center">
+                    <h2 class="text-lg font-semibold text-gray-800">Machine Learning Basics.pdf</h2>
+                    <span class="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">8 pages</span>
+                </div>
+                <div class="ml-auto flex items-center space-x-4">
+                    <button class="text-gray-500 hover:text-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    </button>
+                    <button class="text-gray-500 hover:text-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                        </svg>
+                    </button>
+                    <button class="text-gray-500 hover:text-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                        </svg>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Content Area -->
+            <div class="flex-1 flex overflow-hidden">
+                <!-- PDF Viewer -->
+                <div class="w-1/2 pdf-viewer p-4">
+                    <div class="pdf-page w-full max-w-lg">
+                        <h1 class="text-2xl font-bold mb-4">Introduction to Machine Learning</h1>
+                        <p class="mb-3">Machine learning is a subset of artificial intelligence that provides systems the ability to <span class="highlight">automatically learn and improve from experience</span> without being explicitly programmed.</p>
+                        <h2 class="text-xl font-semibold mt-6 mb-3">Key Concepts</h2>
+                        <p class="mb-3">The process of learning begins with observations or data, such as examples, direct experience, or instruction, in order to look for patterns in data and make better decisions in the future based on the examples that we provide.</p>
+                        <p class="mb-3">The primary aim is to allow the computers to learn automatically without human intervention or assistance and adjust actions accordingly.</p>
+                        <h3 class="text-lg font-semibold mt-5 mb-2">Types of Machine Learning</h3>
+                        <ul class="list-disc pl-5 mb-4">
+                            <li class="mb-1"><span class="font-medium">Supervised Learning:</span> The algorithm is trained on labeled data.</li>
+                            <li class="mb-1"><span class="font-medium">Unsupervised Learning:</span> The algorithm is trained on unlabeled data.</li>
+                            <li class="mb-1"><span class="font-medium">Reinforcement Learning:</span> The algorithm learns through trial and error.</li>
+                        </ul>
+                        <h2 class="text-xl font-semibold mt-6 mb-3">Applications</h2>
+                        <p class="mb-3">Machine learning has a wide range of applications, including:</p>
+                        <ul class="list-disc pl-5 mb-4">
+                            <li class="mb-1">Image and speech recognition</li>
+                            <li class="mb-1">Natural language processing</li>
+                            <li class="mb-1">Recommendation systems</li>
+                            <li class="mb-1">Fraud detection</li>
+                            <li class="mb-1">Autonomous vehicles</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Chat Interface -->
+                <div class="w-1/2 bg-white border-l border-gray-200">
+                    <div class="chat-container">
+                        <div class="chat-messages">
+                            <div class="bot-message message"> 
+<p>👋 Hello! I'm your EduMate assistant for "Machine Learning Basics.pdf". How can I help you understand this document better?</p>
+                            </div>
+                            <div class="user-message message">
+                                <p>Can you explain supervised learning in simple terms?</p>
+                            </div>
+                            <div class="bot-message message">
+                                <p>Supervised learning is like learning with a teacher. The algorithm is given labeled examples (input-output pairs) to learn from.</p>
+                                <p class="mt-2">Think of it like this: if you want to teach a computer to recognize cats, you show it many images labeled "cat" or "not cat". Over time, it learns the patterns that make something a cat.</p>
+                                <p class="mt-2">Common supervised learning algorithms include:</p>
+                                <ul class="list-disc pl-5 mt-1">
+                                    <li>Linear Regression</li>
+                                    <li>Decision Trees</li>
+                                    <li>Support Vector Machines</li>
+                                    <li>Neural Networks</li>
+                                </ul>
+                                <p class="mt-2">Would you like me to explain any of these algorithms in more detail?</p>
+                            </div>
+                            <div class="user-message message">
+                                <p>What's the difference between supervised and unsupervised learning?</p>
+                            </div>
+                            <div class="bot-message message">
+                                <p>Great question! Here's the key difference:</p>
+                                <p class="mt-2"><strong>Supervised Learning:</strong> Works with labeled data. The algorithm knows the correct answers during training (like a student learning with answer keys).</p>
+                                <p class="mt-2"><strong>Unsupervised Learning:</strong> Works with unlabeled data. The algorithm tries to find patterns and relationships on its own (like exploring a new subject without guidance).</p>
+                                <p class="mt-2">For example, in supervised learning, you might train a model to predict house prices based on features like size and location, where you have the actual prices.</p>
+                                <p class="mt-2">In unsupervised learning, you might give the algorithm customer purchase data and ask it to find natural groupings of customers with similar buying habits, without telling it what groups to look for.</p>
+                            </div>
+                        </div>
+                        <div class="chat-input">
+                            <div class="flex items-center">
+                                <button class="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                    </svg>
+                                </button>
+                                <input type="text" id="messageInput" placeholder="Ask about this document..." class="flex-1 border-0 focus:ring-0 focus:outline-none px-4 py-2 bg-transparent" />
+                                <button id="sendBtn" class="p-2 rounded-full text-blue-500 hover:text-blue-700 hover:bg-blue-50">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Feature Showcase Modal (initially hidden) -->
+    <div id="featureModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 overflow-hidden">
+            <div class="p-6 bg-gradient-to-r from-blue-600 to-cyan-500 text-white">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-bold">Welcome to EduMate</h2>
+                    <button id="closeModal" class="text-white hover:text-gray-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <p class="mt-2">Your AI-powered document assistant</p>
+            </div>
+            
+            <div class="p-6">
+                <p class="text-gray-600 mb-6">EduMate transforms how you interact with documents. Upload any PDF and start learning smarter.</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="feature-card bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div class="flex items-center mb-3">
+                            <div class="bg-blue-100 p-2 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <h3 class="ml-3 text-lg font-semibold text-gray-800">Ask Questions</h3>
+                        </div>
+                        <p class="text-gray-600">Chat with your documents in natural language. Get instant, accurate answers based on the content.</p>
+                    </div>
+                    
+                    <div class="feature-card bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div class="flex items-center mb-3">
+                            <div class="bg-green-100 p-2 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                </svg>
+                            </div>
+                            <h3 class="ml-3 text-lg font-semibold text-gray-800">Summarize</h3>
+                        </div>
+                        <p class="text-gray-600">Get concise summaries of long documents. Save time while capturing key insights.</p>
+                    </div>
+                    
+                    <div class="feature-card bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div class="flex items-center mb-3">
+                            <div class="bg-purple-100 p-2 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                                </svg>
+                            </div>
+                            <h3 class="ml-3 text-lg font-semibold text-gray-800">Translate</h3>
+                        </div>
+                        <p class="text-gray-600">Break language barriers. Translate document content to your preferred language instantly.</p>
+                    </div>
+                    
+                    <div class="feature-card bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div class="flex items-center mb-3">
+                            <div class="bg-yellow-100 p-2 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                </svg>
+                            </div>
+                            <h3 class="ml-3 text-lg font-semibold text-gray-800">Voice Interaction</h3>
+                        </div>
+                        <p class="text-gray-600">Hands-free learning. Ask questions and listen to answers with voice commands.</p>
+                    </div>
+                </div>
+                
+                <div class="flex justify-center">
+                    <button id="startBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg">
+                        Get Started
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="result"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Show welcome modal on first load
+            setTimeout(() => {
+                document.getElementById('featureModal').classList.remove('hidden');
+            }, 500);
+            
+            // Close modal
+            document.getElementById('closeModal').addEventListener('click', function() {
+                document.getElementById('featureModal').classList.add('hidden');
+            });
+            
+            document.getElementById('startBtn').addEventListener('click', function() {
+                document.getElementById('featureModal').classList.add('hidden');
+            });
+             // Handle message sending
+            const messageInput = document.getElementById('messageInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const chatMessages = document.querySelector('.chat-messages');
+            
+            function sendMessage() {
+                const message = messageInput.value.trim();
+                if (message) {
+                    // Add user message
+                    const userMessageDiv = document.createElement('div');
+                    userMessageDiv.className = 'user-message message';
+                    userMessageDiv.innerHTML = `<p>${message}</p>`;
+                    chatMessages.appendChild(userMessageDiv);
+                    
+                    // Clear input
+                    messageInput.value = '';
+                    
+                    // Scroll to bottom
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    
+                    // Simulate AI thinking
+                    setTimeout(() => {
+                        // Add AI response based on the question
+                        const botMessageDiv = document.createElement('div');
+                        botMessageDiv.className = 'bot-message message';
+                        
+                        let response = '';
+                        
+                        // Simple response logic based on keywords
+                        if (message.toLowerCase().includes('reinforcement')) {
+                            response = `<p>Reinforcement learning is a type of machine learning where an agent learns to make decisions by taking actions in an environment to maximize some notion of cumulative reward.</p>
+                            <p class="mt-2">Unlike supervised learning, the agent is not told which actions to take but instead must discover which actions yield the most reward by trying them.</p>
+                            <p class="mt-2">It's similar to how we might train a dog - rewarding good behavior and discouraging bad behavior until the dog learns what to do.</p>`;
+                        } else if (message.toLowerCase().includes('neural network')) {
+                            response = `<p>Neural networks are computing systems inspired by the biological neural networks in animal brains.</p>
+                            <p class="mt-2">They consist of layers of interconnected nodes or "neurons" that process information. Each connection can transmit a signal from one neuron to another.</p>
+                            <p class="mt-2">Deep learning uses neural networks with many layers (deep neural networks) to solve complex problems like image and speech recognition.</p>`;
+                        } else if (message.toLowerCase().includes('application') || message.toLowerCase().includes('use case')) {
+                            response = `<p>Based on the document, machine learning has several key applications:</p>
+                            <ul class="list-disc pl-5 mt-2">
+                                <li>Image and speech recognition - like facial recognition or voice assistants</li>
+                                <li>Natural language processing - powering chatbots and translation services</li>
+                                <li>Recommendation systems - suggesting products or content you might like</li>
+                                <li>Fraud detection - identifying unusual patterns in financial transactions</li>
+                                <li>Autonomous vehicles - self-driving cars that learn from road conditions</li>
+                            </ul>
+                            <p class="mt-2">Would you like me to explain any of these applications in more detail?</p>`;
+                        } else {
+                            response = `<p>I've analyzed the document and found some information that might help answer your question.</p>
+                            <p class="mt-2">Machine learning is fundamentally about creating systems that can learn patterns from data without explicit programming. The document mentions three main types: supervised learning (using labeled data), unsupervised learning (finding patterns in unlabeled data), and reinforcement learning (learning through trial and error).</p>
+                            <p class="mt-2">Could you specify which aspect of machine learning you'd like to know more about?</p>`;
+                        }
+                        
+                        botMessageDiv.innerHTML = response;
+                        chatMessages.appendChild(botMessageDiv);
+                        
+                        // Scroll to bottom again
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }, 1000);
+                }
+            }
+            
+            sendBtn.addEventListener('click', sendMessage);
+            
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            // Handle file upload button
+            document.getElementById('uploadBtn').addEventListener('click', function() {
+                alert('File upload functionality would be implemented here. In a real application, this would allow users to upload PDF documents for analysis.');
+            });
+            
+            // Make sidebar buttons interactive
+            const sidebarBtns = document.querySelectorAll('.sidebar-btn');
+            sidebarBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    sidebarBtns.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'962ad575524ca92b',t:'MTc1MzEwMjMyOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
+<script>
+document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    let formData = new FormData();
+    formData.append("file", document.querySelector("input[name='file']").files[0]);
+    let response = await fetch("/upload", { method: "POST", body: formData });
+    let data = await response.json();
+    document.getElementById("result").innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+});
+</script>
+
+</body>
+</html> 
